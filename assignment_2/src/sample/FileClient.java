@@ -1,88 +1,159 @@
 package sample;
 
 
+import javafx.application.Application;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
+import java.io.File;
+
 import java.io.*;
 import java.net.Socket;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Created by Saif Niaz on 2016-03-25.
  */
-public class FileClient {
-    private String hostname = "localhost";
-    private int Port = 2222;
-    private static int bytesRead;
-    private static int current = 0;
-    private static FileOutputStream fos = null;
-    private static BufferedOutputStream bos = null;
+public class FileClient extends Application {
 
-    public FileClient(){
 
+
+    private static Socket sock;
+    private static String fileName;
+    private static BufferedReader stdin;
+    private static PrintStream os;
+
+    private File file = new File("Shared_Folder/");
+    private File file2 = new File("Server_Folder/");
+    private BorderPane layout;
+    private ListView<String> table1, table2;
+
+    @Override
+    public void start(Stage primaryStage) throws Exception{
+
+        primaryStage.setTitle("File Sharer v1.0");
+        GridPane editArea = new GridPane();
+        editArea.setPadding(new Insets(0, 0, 0, 0));
+        editArea.setVgap(00);
+        editArea.setHgap(00);
+
+        Button downloadButton = new Button("Download");
+        downloadButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                String name = table2.getSelectionModel().getSelectedItem();
+                String downName = "Server_Folder/" + name;
+                os.println(2);
+                receiveFile(downName);
+
+            }
+        });
+        Button uploadButton = new Button("Upload");
+        uploadButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                String name = table1.getSelectionModel().getSelectedItem();
+                String uploadName = "Shared_Folder/" + name;
+                os.println(1);
+                sendFile(uploadName);
+
+            }
+        });
+        editArea.add(downloadButton, 0, 0);
+        editArea.add(uploadButton, 1, 0);
+
+        table1 = new ListView<>();
+        table1.getItems().addAll(file.list());
+        table1.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+
+        table2 = new ListView<>();
+        table2.getItems().addAll(file2.list());
+        table2.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+        layout = new BorderPane();
+        layout.setTop(editArea);
+        layout.setLeft(table1);
+        layout.setRight(table2);
+
+
+        Scene scene = new Scene(layout, 500, 500);
+        primaryStage.setScene(scene);
+        primaryStage.show();
     }
 
-    public static void main(String[] args) throws IOException{
+    public static void main(String[] args) throws IOException {
+
         try {
-            Socket sock = new Socket("localhost", 2222);
-            System.out.println("Connecting...");
-
-            // receive file*
-            byte [] mybytearray  = new byte [8*1024];
-            InputStream is = sock.getInputStream();
-            fos = new FileOutputStream("Shared_Folder/temp.tx");
-            bos = new BufferedOutputStream(fos);
-            bytesRead = is.read(mybytearray,0,mybytearray.length);
-            current = bytesRead;
-
-            do {
-                bytesRead =
-                        is.read(mybytearray, current, (mybytearray.length-current));
-                if(bytesRead >= 0) current += bytesRead;
-            } while(bytesRead > -1);
-
-            bos.write(mybytearray, 0 , current);
-            bos.flush();
-            System.out.println("File " + "Shared_Folder/temp.txt"
-                    + " downloaded (" + current + " bytes read)");
-            //if (sock != null) sock.close();
+            sock = new Socket("localhost", 1212);
+            stdin = new BufferedReader(new InputStreamReader(System.in));
+        } catch (Exception e) {
+            System.err.println("Cannot connect to the server, try again later.");
+            System.exit(1);
         }
-        finally {
-            if (fos != null) fos.close();
-            if (bos != null) bos.close();
+        os = new PrintStream(sock.getOutputStream());
 
-        }
+        launch(args);
 
+        sock.close();
     }
 
+    public static void sendFile(String fileName) {
+        try {
+            File myFile = new File(fileName);
+            byte[] bytes = new byte[(int) myFile.length()];
 
-   /* public void run() throws IOException{
-        Socket socket = new Socket(this.hostname, this.Port);
-        File file = new File("Shared_Folder/temp1.txt");
-        long lenght = file.length();
-        byte[] bytes = new byte[8*1024];
-        InputStream in = new FileInputStream(file);
-        OutputStream out = socket.getOutputStream();
+            FileInputStream fis = new FileInputStream(myFile);
+            BufferedInputStream bis = new BufferedInputStream(fis);
 
-        int count;
-        while ((count = in.read(bytes)) > 0) {
-            out.write(bytes, 0, count);
+
+            DataInputStream dis = new DataInputStream(bis);
+            dis.readFully(bytes, 0, bytes.length);
+
+            OutputStream os = sock.getOutputStream();
+
+            //Sending file name and file size to the server
+            DataOutputStream dos = new DataOutputStream(os);
+            dos.writeUTF(myFile.getName());
+            dos.writeLong(bytes.length);
+            dos.write(bytes, 0, bytes.length);
+            dos.flush();
+            System.out.println("File "+fileName+" sent to Server.");
+        } catch (Exception e) {
+            System.err.println("File does not exist!");
+            System.out.println(fileName);
         }
+    }
 
-        InputStreamReader ir = new InputStreamReader(socket.getInputStream());
-        BufferedReader br = new BufferedReader(ir);
-        String read = br.readLine();
-        System.out.println(read);
-        /*String[] temp = read.split(" ");
-        int i = 0;
-        while(i < temp.length) {
-            System.out.println(temp[i]);
-            i++;
+    public static void receiveFile(String fileName) {
+        try {
+            int bytesRead;
+            InputStream in = sock.getInputStream();
+
+            DataInputStream clientData = new DataInputStream(in);
+
+            fileName = clientData.readUTF();
+            OutputStream output = new FileOutputStream(("received_from_server_" + fileName));
+            long size = clientData.readLong();
+            byte[] buffer = new byte[1024];
+            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                output.write(buffer, 0, bytesRead);
+                size -= bytesRead;
+            }
+
+            output.close();
+            in.close();
+
+            System.out.println("File "+fileName+" received from Server.");
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
-
-        in.close();
-        socket.close();
-
-
-    }*/
-
-
-
+    }
 }

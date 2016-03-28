@@ -5,149 +5,104 @@ import java.net.*;
 import java.util.StringTokenizer;
 import java.util.NoSuchElementException;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 /**
  * Created by Saif Niaz on 2016-03-23.
  */
 public class ClientConnectionHandler implements Runnable {
-    public static String WEB_DIR = "www";
-    private Socket socket = null;
-    private BufferedReader requestInput = null;
-    private DataOutputStream requestOutput = null;
 
-    public ClientConnectionHandler(Socket socket){
-        this.socket = socket;
-        try {
-            requestInput = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            requestOutput = new DataOutputStream(socket.getOutputStream());
-        } catch (IOException e) {
-            System.err.println("Server Error while processing new socket\r\n");
-            e.printStackTrace();
-        }
+    private Socket clientSocket;
+    private BufferedReader in = null;
+
+    public ClientConnectionHandler(Socket client) {
+        this.clientSocket = client;
     }
 
+    @Override
     public void run() {
-        String mainRequestLine = null;
         try {
-            mainRequestLine = requestInput.readLine();
-            handleRequest(mainRequestLine);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                requestInput.close();
-                requestOutput.close();
-                socket.close();
-            } catch (IOException e2) {}
-        }
-    }
+            in = new BufferedReader(new InputStreamReader(
+                    clientSocket.getInputStream()));
+            String clientSelection;
+            while ((clientSelection = in.readLine()) != null) {
+                switch (clientSelection) {
+                    case "1":
+                        receiveFile();
+                        break;
+                    case "2":
+                        String outGoingFileName;
+                        while ((outGoingFileName = in.readLine()) != null) {
+                            sendFile(outGoingFileName);
+                        }
 
-    private void handleRequest(String mainRequestLine) throws IOException {
-        try {
-            StringTokenizer requestTokenizer = new StringTokenizer(mainRequestLine);
-            String command = null;
-            String uri = null;
-            String httpVersion = null;
-
-            command = requestTokenizer.nextToken();
-            uri = requestTokenizer.nextToken();
-            if (!uri.startsWith("/")) {
-                uri = "/" + uri;
+                        break;
+                    default:
+                        System.out.println("Incorrect command received.");
+                        break;
+                }
+                in.close();
+                break;
             }
 
-            httpVersion = requestTokenizer.nextToken();
-            if (command.equalsIgnoreCase("GET") || command.equalsIgnoreCase("POST")) {
-                File baseDir = new File(WEB_DIR);
-                sendFile(new File(baseDir, uri));
-            } else {
-                sendError(405, "Method Not Allowed",
-                        "The method ("+command+") requested by your client is not allowed.");
-                System.err.println("HTTP/1.1 405 Method Not Allowed: "+mainRequestLine+"\r\n");
-            }
-        } catch (NoSuchElementException e) {
-            sendError(400, "Bad Request", "The request sent by your client software was invalid.");
-            System.err.println("HTTP/1.1 400 Bad Request: "+mainRequestLine+"\r\n");
-            e.printStackTrace();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+            //Logger.getLogger(ClientConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    private String getContentType(String filename) {
-        if (filename.endsWith(".html") || filename.endsWith(".htm")) {
-            return "text/html";
-        } else if (filename.endsWith(".txt")) {
-            return "text/plain";
-        } else if (filename.endsWith(".css")) {
-            return "text/css";
-        } else if (filename.endsWith(".js")) {
-            return "text/javascript";
-        } else if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) {
-            return "image/jpeg";
-        } else if (filename.endsWith(".gif")) {
-            return "image/gif";
-        } else if (filename.endsWith(".png")) {
-            return "image/png";
-        }
-        return "unknown";
-    }
-
-    private void sendFile(File file) throws IOException {
-        String header = "HTTP/1.1 200 OK\r\n";
-        String contentType = getContentType(file.getName());
-        byte[] content = new byte[(int)file.length()];
-        FileInputStream fileInput = null;
-
+    public void receiveFile() {
         try {
-            fileInput = new FileInputStream(file);
-        } catch (FileNotFoundException e) {
-            fileInput = null;
+            int bytesRead;
+
+            DataInputStream clientData = new DataInputStream(clientSocket.getInputStream());
+
+            String fileName = clientData.readUTF();
+            OutputStream output = new FileOutputStream(("Server_Folder/" + fileName));
+            long size = clientData.readLong();
+            byte[] buffer = new byte[8*1024];
+            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+                output.write(buffer, 0, bytesRead);
+                size -= bytesRead;
+            }
+
+            output.close();
+            clientData.close();
+
+            System.out.println("File "+fileName+" received from client.");
+        } catch (IOException ex) {
+            System.err.println("Client error. Connection closed.");
         }
+    }
 
-        if (fileInput != null) {
-            fileInput.read(content);
-            fileInput.close();
-            sendResponse(header, contentType, content);
-        } else {
-            sendError(404, "File Not Found",
-                    "The requested file ("+file.getName()+") does not exist on the server.");
+    public void sendFile(String fileName) {
+        try {
+            //handle file read
+            File myFile = new File(fileName);
+            byte[] mybytearray = new byte[(int) myFile.length()];
+
+            FileInputStream fis = new FileInputStream(myFile);
+            BufferedInputStream bis = new BufferedInputStream(fis);
+            //bis.read(mybytearray, 0, mybytearray.length);
+
+            DataInputStream dis = new DataInputStream(bis);
+            dis.readFully(mybytearray, 0, mybytearray.length);
+
+            //handle file send over socket
+            OutputStream os = clientSocket.getOutputStream();
+
+            //Sending file name and file size to the server
+            DataOutputStream dos = new DataOutputStream(os);
+            dos.writeUTF(myFile.getName());
+            dos.writeLong(mybytearray.length);
+            dos.write(mybytearray, 0, mybytearray.length);
+            dos.flush();
+            System.out.println("File "+fileName+" sent to client.");
+        } catch (Exception e) {
+            System.err.println("File does not exist!");
         }
     }
-
-    private void sendResponse(String header, String contentType,
-                              byte[] content) throws IOException {
-        sendResponse(header, contentType, content, 0);
-    }
-
-    private void sendResponse(String header, String contentType,
-                              byte[] content, long lastModified) throws IOException {
-        requestOutput.writeBytes(header);
-        requestOutput.writeBytes("Content-Type: "+contentType+"\r\n");
-        requestOutput.writeBytes("Server: Simple-Http-Server/1.0\r\n");
-        requestOutput.writeBytes("Date: "+(new Date())+"\r\n");
-        requestOutput.writeBytes("Content-Length: "+content.length+"\r\n");
-        if (lastModified > 0) {
-            requestOutput.writeBytes("Last-Modified: "+(new Date(lastModified))+"\r\n");
-        }
-        requestOutput.writeBytes("Connection: Close\r\n\r\n");
-        requestOutput.write(content);
-        requestOutput.writeBytes("\r\n");
-        requestOutput.flush();
-    }
-
-    private void sendError(int code, String title, String message) throws IOException {
-        String header = "HTTP/1.1 "+code+" "+title+"\r\n";
-        String contentType = "text/html";
-        String content = "<!DOCTYPE html>" +
-                "<html>\r\n" +
-                "  <head>\r\n" +
-                "    <title>Http Error "+code+" "+title+"</title>\r\n" +
-                "  </head>\r\n" +
-                "  <body>\r\n" +
-                "    <h1>Http Error "+code+" "+title+"</h1>\r\n" +
-                "    <p>"+message+"</p>\r\n" +
-                "  </body>\r\n" +
-                "</html>\r\n";
-        sendResponse(header, contentType, content.getBytes());
-    }
-
 
 
 }
