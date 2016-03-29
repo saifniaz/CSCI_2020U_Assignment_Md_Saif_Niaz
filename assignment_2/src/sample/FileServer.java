@@ -9,29 +9,26 @@ import java.net.*;
 public class FileServer {
 
     private static ServerSocket serverSocket;
-    private static Socket clientSocket = null;
 
     public static void main(String[] args) throws IOException {
 
         try {
             serverSocket = new ServerSocket(1212);
             System.out.println("Server started.");
-        } catch (Exception e) {
-            System.err.println("Port already in use.");
-            System.exit(1);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         while (true) {
             try {
-                clientSocket = serverSocket.accept();
+                Socket clientSocket = serverSocket.accept();
                 System.out.println("Accepted connection : " + clientSocket);
 
                 Thread t = new Thread(new ClientConnectionHandler(clientSocket));
-
                 t.start();
 
-            } catch (Exception e) {
-                System.err.println("Error in connection attempt.");
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
     }

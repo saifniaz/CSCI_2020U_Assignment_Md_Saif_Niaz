@@ -2,19 +2,19 @@ package sample;
 
 import java.io.*;
 import java.net.*;
-import java.util.StringTokenizer;
-import java.util.NoSuchElementException;
-import java.util.Date;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 
 /**
  * Created by Saif Niaz on 2016-03-23.
  */
+
+
 public class ClientConnectionHandler implements Runnable {
 
     private Socket clientSocket;
     private BufferedReader in = null;
+    private static PrintStream os;
+    private File file = new File("Server_Folder/");
 
     public ClientConnectionHandler(Socket client) {
         this.clientSocket = client;
@@ -23,36 +23,27 @@ public class ClientConnectionHandler implements Runnable {
     @Override
     public void run() {
         try {
-            in = new BufferedReader(new InputStreamReader(
-                    clientSocket.getInputStream()));
-            String clientSelection;
-            while ((clientSelection = in.readLine()) != null) {
-                switch (clientSelection) {
-                    case "1":
-                        receiveFile();
-                        break;
-                    case "2":
-                        String outGoingFileName;
-                        while ((outGoingFileName = in.readLine()) != null) {
-                            sendFile(outGoingFileName);
-                        }
-
-                        break;
-                    default:
-                        System.out.println("Incorrect command received.");
-                        break;
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            String index = in.readLine();
+            switch (index) {
+                case "upload":
+                    uploadFile();
+                    break;
+                case "download":
+                    String outGoingFileName = in.readLine();
+                    sendFile(outGoingFileName);
+                    break;
+                default:
+                    System.out.println("Incorrect command received.");
+                    break;
                 }
                 in.close();
-                break;
-            }
-
         } catch (IOException ex) {
             ex.printStackTrace();
-            //Logger.getLogger(ClientConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
-    public void receiveFile() {
+    public void uploadFile() {
         try {
             int bytesRead;
 
@@ -79,10 +70,10 @@ public class ClientConnectionHandler implements Runnable {
     public void sendFile(String fileName) {
         try {
             //handle file read
-            File myFile = new File(fileName);
-            byte[] mybytearray = new byte[(int) myFile.length()];
+            File file = new File(fileName);
+            byte[] mybytearray = new byte[(int) file.length()];
 
-            FileInputStream fis = new FileInputStream(myFile);
+            FileInputStream fis = new FileInputStream(file);
             BufferedInputStream bis = new BufferedInputStream(fis);
             //bis.read(mybytearray, 0, mybytearray.length);
 
@@ -94,14 +85,39 @@ public class ClientConnectionHandler implements Runnable {
 
             //Sending file name and file size to the server
             DataOutputStream dos = new DataOutputStream(os);
-            dos.writeUTF(myFile.getName());
+            dos.writeUTF(file.getName());
             dos.writeLong(mybytearray.length);
             dos.write(mybytearray, 0, mybytearray.length);
             dos.flush();
             System.out.println("File "+fileName+" sent to client.");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        /*ry {
+            File myFile = new File(fileName);
+            byte[] bytes = new byte[(int) myFile.length()];
+
+            FileInputStream fis = new FileInputStream(myFile);
+            BufferedInputStream bis = new BufferedInputStream(fis);
+
+
+            DataInputStream dis = new DataInputStream(bis);
+            dis.readFully(bytes, 0, bytes.length);
+
+            OutputStream os = sock.getOutputStream();
+
+            //Sending file name and file size to the server
+            DataOutputStream dos = new DataOutputStream(os);
+            dos.writeUTF(myFile.getName());
+            dos.writeLong(bytes.length);
+            dos.write(bytes, 0, bytes.length);
+            dos.flush();
+            System.out.println("File "+fileName+" sent to Server.");
         } catch (Exception e) {
             System.err.println("File does not exist!");
-        }
+            System.out.println(fileName);
+        }*/
     }
 
 

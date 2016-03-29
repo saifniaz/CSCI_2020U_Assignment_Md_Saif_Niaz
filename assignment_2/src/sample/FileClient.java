@@ -26,9 +26,8 @@ public class FileClient extends Application {
 
 
     private static Socket sock;
-    private static String fileName;
-    private static BufferedReader stdin;
     private static PrintStream os;
+    private BufferedReader in = null;
 
     private File file = new File("Shared_Folder/");
     private File file2 = new File("Server_Folder/");
@@ -47,10 +46,10 @@ public class FileClient extends Application {
         Button downloadButton = new Button("Download");
         downloadButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
-            public void handle(ActionEvent event) {
+            public void handle(ActionEvent event1) {
                 String name = table2.getSelectionModel().getSelectedItem();
                 String downName = "Server_Folder/" + name;
-                os.println(2);
+                os.println("download");
                 receiveFile(downName);
 
             }
@@ -61,8 +60,8 @@ public class FileClient extends Application {
             public void handle(ActionEvent event) {
                 String name = table1.getSelectionModel().getSelectedItem();
                 String uploadName = "Shared_Folder/" + name;
-                os.println(1);
-                sendFile(uploadName);
+                os.println("upload");
+                uploadFile(uploadName);
 
             }
         });
@@ -93,7 +92,7 @@ public class FileClient extends Application {
 
         try {
             sock = new Socket("localhost", 1212);
-            stdin = new BufferedReader(new InputStreamReader(System.in));
+            //stdin = new BufferedReader(new InputStreamReader(System.in));
         } catch (Exception e) {
             System.err.println("Cannot connect to the server, try again later.");
             System.exit(1);
@@ -105,7 +104,8 @@ public class FileClient extends Application {
         sock.close();
     }
 
-    public static void sendFile(String fileName) {
+
+    public static void uploadFile(String fileName) {
         try {
             File myFile = new File(fileName);
             byte[] bytes = new byte[(int) myFile.length()];
@@ -134,24 +134,27 @@ public class FileClient extends Application {
 
     public static void receiveFile(String fileName) {
         try {
+
+            os.println(fileName);
             int bytesRead;
-            InputStream in = sock.getInputStream();
+            //InputStream in = sock.getInputStream();
 
-            DataInputStream clientData = new DataInputStream(in);
+            DataInputStream clientData = new DataInputStream(sock.getInputStream());
 
-            fileName = clientData.readUTF();
-            OutputStream output = new FileOutputStream(("received_from_server_" + fileName));
+            String fileName1 = clientData.readUTF();
+            OutputStream output = new FileOutputStream(("Shared_Folder/" + fileName1));
             long size = clientData.readLong();
-            byte[] buffer = new byte[1024];
+            byte[] buffer = new byte[8*1024];
             while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
                 output.write(buffer, 0, bytesRead);
                 size -= bytesRead;
             }
 
             output.close();
-            in.close();
+            clientData.close();
+            //in.close();
 
-            System.out.println("File "+fileName+" received from Server.");
+            System.out.println("File "+fileName1+" received from Server.");
         } catch (IOException ex) {
             ex.printStackTrace();
         }
