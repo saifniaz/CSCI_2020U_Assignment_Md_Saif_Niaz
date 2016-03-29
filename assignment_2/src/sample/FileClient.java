@@ -2,7 +2,6 @@ package sample;
 
 
 import javafx.application.Application;
-import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
@@ -15,24 +14,22 @@ import java.io.File;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Scanner;
 
 /**
  * Created by Saif Niaz on 2016-03-25.
  */
+
 public class FileClient extends Application {
 
+    private static Socket socket;
+    private static PrintStream out;
 
-
-    private static Socket sock;
-    private static PrintStream os;
-    private static BufferedReader in = null;
     private static ObjectOutputStream output;
-    private static ObjectInputStream input;
+    private static Scanner scanner = null;
 
     private File file = new File("Shared_Folder/");
-    private static File file2 = new File("Server_Folder/");
+    private static File file2; // = new File("Server_Folder/");
     private BorderPane layout;
     private ListView<String> table1, table2;
 
@@ -51,8 +48,8 @@ public class FileClient extends Application {
             public void handle(ActionEvent event1) {
                 String name = table2.getSelectionModel().getSelectedItem();
                 String downName = "Server_Folder/" + name;
-                os.println("download");
-                receiveFile(downName);
+                out.println("download");
+                downloadFile(downName);
                 try {
                     RefreshFile(primaryStage);
                 }catch (IOException e){
@@ -66,7 +63,7 @@ public class FileClient extends Application {
             public void handle(ActionEvent event){
                 String name = table1.getSelectionModel().getSelectedItem();
                 String uploadName = "Shared_Folder/" + name;
-                os.println("upload");
+                out.println("upload");
                 uploadFile(uploadName);
                 try {
                     RefreshFile(primaryStage);
@@ -101,23 +98,17 @@ public class FileClient extends Application {
     public static void main(String[] args) throws IOException {
 
         try {
-            sock = new Socket("localhost", 1212);
-            //stdin = new BufferedReader(new InputStreamReader(System.in));
+            socket = new Socket("localhost", 1212);
         } catch (Exception e) {
-            System.err.println("Cannot connect to the server, try again later.");
-            System.exit(1);
+            e.printStackTrace();
         }
-        os = new PrintStream(sock.getOutputStream());
-        //addServerFile(sock.getInputStream());
-        output = new ObjectOutputStream(sock.getOutputStream());
-
-
+        out = new PrintStream(socket.getOutputStream());
+        addServerFile();
+        output = new ObjectOutputStream(socket.getOutputStream());
 
         launch(args);
         output.close();
-        os.close();
-
-        //sock.close();
+        out.close();
     }
 
     public void RefreshFile(Stage primaryStage) throws IOException{
@@ -125,13 +116,12 @@ public class FileClient extends Application {
         start(primaryStage);
     }
 
-    public static void addServerFile(InputStream inputStream)throws IOException{
-        in = new BufferedReader(new InputStreamReader(inputStream));
-        String name = in.readLine();
-        System.out.println(name);
+    public static void addServerFile()throws IOException{
+        scanner = new Scanner(socket.getInputStream());
+        String name = scanner.next();
+        //System.out.println(name);
         file2 = new File(name);
-        in.close();
-
+        //in.close();
     }
 
 
@@ -147,7 +137,7 @@ public class FileClient extends Application {
             DataInputStream dis = new DataInputStream(bis);
             dis.readFully(bytes, 0, bytes.length);
 
-            OutputStream os = sock.getOutputStream();
+            OutputStream os = socket.getOutputStream();
 
             //Sending file name and file size to the server
             DataOutputStream dos = new DataOutputStream(os);
@@ -155,21 +145,20 @@ public class FileClient extends Application {
             dos.writeLong(bytes.length);
             dos.write(bytes, 0, bytes.length);
             dos.flush();
-            System.out.println("File "+fileName+" sent to Server.");
+            System.out.println("Uploaded");
         } catch (Exception e) {
-            System.err.println("File does not exist!");
-            System.out.println(fileName);
+            e.printStackTrace();
         }
     }
 
-    public static void receiveFile(String fileName) {
+    public static void downloadFile(String fileName) {
         try {
 
-            os.println(fileName);
+            out.println(fileName);
             int bytesRead;
             //InputStream in = sock.getInputStream();
 
-            DataInputStream clientData = new DataInputStream(sock.getInputStream());
+            DataInputStream clientData = new DataInputStream(socket.getInputStream());
 
             String fileName1 = clientData.readUTF();
             OutputStream output = new FileOutputStream(("Shared_Folder/" + fileName1));
@@ -179,12 +168,8 @@ public class FileClient extends Application {
                 output.write(buffer, 0, bytesRead);
                 size -= bytesRead;
             }
-
             output.close();
-            clientData.close();
-            //in.close();
-
-            System.out.println("File "+fileName1+" received from Server.");
+            System.out.println("Download");
         } catch (IOException ex) {
             ex.printStackTrace();
         }

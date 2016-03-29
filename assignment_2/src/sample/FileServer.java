@@ -8,17 +8,18 @@ import java.net.*;
  */
 public class FileServer {
 
-    private static ServerSocket serverSocket;
+    private static ServerSocket serverSocket = null;
 
-    public static void main(String[] args) throws IOException {
-
-        try {
-            serverSocket = new ServerSocket(1212);
-            System.out.println("Server started.");
-        } catch (IOException e) {
+    public FileServer(int port){
+        try{
+            this.serverSocket = new ServerSocket(port);
+            System.out.println("Server Listening");
+        }catch (IOException e){
             e.printStackTrace();
         }
+    }
 
+    public void handleRequest(){
         while (true) {
             try {
                 Socket clientSocket = serverSocket.accept();
@@ -26,11 +27,17 @@ public class FileServer {
 
                 Thread t = new Thread(new ClientConnectionHandler(clientSocket));
                 t.start();
+                //clientSocket.close();
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    public static void main(String[] args) throws IOException {
+        FileServer fileServer = new FileServer(1212);
+        fileServer.handleRequest();
     }
 
 

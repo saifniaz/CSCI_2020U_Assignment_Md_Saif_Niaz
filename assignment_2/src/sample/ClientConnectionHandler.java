@@ -12,16 +12,15 @@ import java.net.*;
 public class ClientConnectionHandler implements Runnable {
 
     private Socket clientSocket;
-    private InetAddress address;
+    private SocketAddress address;
     private ObjectInputStream input;
-    private int Port = 1212;
     private BufferedReader in = null;
     private static PrintStream os;
     private File file = new File("Server_Folder/");
 
     public ClientConnectionHandler(Socket socket) {
         this.clientSocket = socket;
-        address = clientSocket.getInetAddress();
+        address = clientSocket.getLocalSocketAddress();
 
     }
 
@@ -29,42 +28,23 @@ public class ClientConnectionHandler implements Runnable {
     public void run() {
 
         try {
-            //returnFIle();
+            returnFIle();
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             input = new ObjectInputStream(clientSocket.getInputStream());
             String index;
             while((index = in.readLine()) != null) {
-
                 switch (index) {
                     case "upload":
-                        //if(clientSocket.isClosed()){
-                           // clientSocket.connect(new InetSocketAddress(address,Port));
-                            uploadFile();
-                            //clientSocket.close();
-                        //}else{
-                            //clientSocket.connect(new InetSocketAddress(address,Port));
-                            //uploadFile();
-                            //clientSocket.close();
-                        //}
-                       //
+                        uploadFile();
                         break;
                     case "download":
                         String outGoingFileName = in.readLine();
-                        //if(clientSocket.isClosed()){
-                            //clientSocket.connect(new InetSocketAddress(address,Port));
-                            sendFile(outGoingFileName);
-                           // clientSocket.close();
-                        //}else{
-                            //clientSocket.connect(new InetSocketAddress(address,Port));
-                            //sendFile(outGoingFileName);
-                            //clientSocket.close();
-                       // }
+                        downloadFile(outGoingFileName);
                         break;
                     default:
                         System.out.println("Incorrect command received.");
                         break;
                 }
-                //
             }
             //in.close();
             //input.close();
@@ -76,7 +56,7 @@ public class ClientConnectionHandler implements Runnable {
     public void returnFIle() throws IOException{
         os = new PrintStream( clientSocket.getOutputStream());
         os.println(this.file.getName());
-        os.close();
+        //os.close();
     }
 
     public void uploadFile() {
@@ -95,7 +75,7 @@ public class ClientConnectionHandler implements Runnable {
             }
 
             output.close();
-            //clientData.close();
+
 
             System.out.println("File "+fileName+" received from client.");
         } catch (IOException ex) {
@@ -103,18 +83,17 @@ public class ClientConnectionHandler implements Runnable {
         }
     }
 
-    public void sendFile(String fileName) {
+    public void downloadFile(String fileName) {
         try {
             //handle file read
             File file = new File(fileName);
-            byte[] mybytearray = new byte[(int) file.length()];
+            byte[] bytes = new byte[(int) file.length()];
 
             FileInputStream fis = new FileInputStream(file);
             BufferedInputStream bis = new BufferedInputStream(fis);
-            //bis.read(mybytearray, 0, mybytearray.length);
 
             DataInputStream dis = new DataInputStream(bis);
-            dis.readFully(mybytearray, 0, mybytearray.length);
+            dis.readFully(bytes, 0, bytes.length);
 
             //handle file send over socket
             OutputStream os = clientSocket.getOutputStream();
@@ -122,8 +101,8 @@ public class ClientConnectionHandler implements Runnable {
             //Sending file name and file size to the server
             DataOutputStream dos = new DataOutputStream(os);
             dos.writeUTF(file.getName());
-            dos.writeLong(mybytearray.length);
-            dos.write(mybytearray, 0, mybytearray.length);
+            dos.writeLong(bytes.length);
+            dos.write(bytes, 0, bytes.length);
             dos.flush();
             System.out.println("File "+fileName+" sent to client.");
         } catch (IOException e) {
