@@ -27,15 +27,17 @@ public class FileClient extends Application {
 
     private static Socket sock;
     private static PrintStream os;
-    private BufferedReader in = null;
+    private static BufferedReader in = null;
+    private static ObjectOutputStream output;
+    private static ObjectInputStream input;
 
     private File file = new File("Shared_Folder/");
-    private File file2 = new File("Server_Folder/");
+    private static File file2 = new File("Server_Folder/");
     private BorderPane layout;
     private ListView<String> table1, table2;
 
     @Override
-    public void start(Stage primaryStage) throws Exception{
+    public void start(Stage primaryStage) throws IOException{
 
         primaryStage.setTitle("File Sharer v1.0");
         GridPane editArea = new GridPane();
@@ -51,18 +53,26 @@ public class FileClient extends Application {
                 String downName = "Server_Folder/" + name;
                 os.println("download");
                 receiveFile(downName);
-
+                try {
+                    RefreshFile(primaryStage);
+                }catch (IOException e){
+                    e.printStackTrace();
+                }
             }
         });
         Button uploadButton = new Button("Upload");
         uploadButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
-            public void handle(ActionEvent event) {
+            public void handle(ActionEvent event){
                 String name = table1.getSelectionModel().getSelectedItem();
                 String uploadName = "Shared_Folder/" + name;
                 os.println("upload");
                 uploadFile(uploadName);
-
+                try {
+                    RefreshFile(primaryStage);
+                }catch (IOException e){
+                    e.printStackTrace();
+                }
             }
         });
         editArea.add(downloadButton, 0, 0);
@@ -70,12 +80,12 @@ public class FileClient extends Application {
 
         table1 = new ListView<>();
         table1.getItems().addAll(file.list());
-        table1.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        table1.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
 
 
         table2 = new ListView<>();
         table2.getItems().addAll(file2.list());
-        table2.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        table2.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
 
         layout = new BorderPane();
         layout.setTop(editArea);
@@ -98,10 +108,30 @@ public class FileClient extends Application {
             System.exit(1);
         }
         os = new PrintStream(sock.getOutputStream());
+        //addServerFile(sock.getInputStream());
+        output = new ObjectOutputStream(sock.getOutputStream());
+
+
 
         launch(args);
+        output.close();
+        os.close();
 
-        sock.close();
+        //sock.close();
+    }
+
+    public void RefreshFile(Stage primaryStage) throws IOException{
+        primaryStage.close();
+        start(primaryStage);
+    }
+
+    public static void addServerFile(InputStream inputStream)throws IOException{
+        in = new BufferedReader(new InputStreamReader(inputStream));
+        String name = in.readLine();
+        System.out.println(name);
+        file2 = new File(name);
+        in.close();
+
     }
 
 
