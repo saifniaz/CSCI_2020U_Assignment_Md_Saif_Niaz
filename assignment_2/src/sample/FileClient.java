@@ -164,14 +164,14 @@ public class FileClient extends Application {
             OutputStream output = new FileOutputStream(("Shared_Folder/" + fileName1));
             long size = clientData.readLong();
             byte[] buffer = new byte[8*1024];
-            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
+            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) > -1) {
                 output.write(buffer, 0, bytesRead);
                 size -= bytesRead;
             }
             output.close();
             System.out.println("Download");
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

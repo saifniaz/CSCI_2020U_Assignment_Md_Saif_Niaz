@@ -28,7 +28,6 @@ public class FileServer {
                 Thread t = new Thread(new ClientConnectionHandler(clientSocket));
                 t.start();
                 //clientSocket.close();
-
             } catch (IOException e) {
                 e.printStackTrace();
             }

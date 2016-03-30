@@ -41,27 +41,21 @@ public class ClientConnectionHandler implements Runnable {
                         String outGoingFileName = in.readLine();
                         downloadFile(outGoingFileName);
                         break;
-                    default:
-                        System.out.println("Incorrect command received.");
-                        break;
                 }
             }
-            //in.close();
-            //input.close();
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
     public void returnFIle() throws IOException{
         os = new PrintStream( clientSocket.getOutputStream());
         os.println(this.file.getName());
-        //os.close();
     }
 
     public void uploadFile() {
         try {
-            int bytesRead;
+            int bytesR;
 
             DataInputStream clientData = new DataInputStream(clientSocket.getInputStream());
 
@@ -69,17 +63,16 @@ public class ClientConnectionHandler implements Runnable {
             OutputStream output = new FileOutputStream(("Server_Folder/" + fileName));
             long size = clientData.readLong();
             byte[] buffer = new byte[8*1024];
-            while (size > 0 && (bytesRead = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) != -1) {
-                output.write(buffer, 0, bytesRead);
-                size -= bytesRead;
+            while (size > 0 && (bytesR = clientData.read(buffer, 0, (int) Math.min(buffer.length, size))) > -1) {
+                output.write(buffer, 0, bytesR);
+                size -= bytesR;
             }
-
             output.close();
 
 
-            System.out.println("File "+fileName+" received from client.");
-        } catch (IOException ex) {
-            System.err.println("Client error. Connection closed.");
+            System.out.println("Uploaded to server");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -104,7 +97,7 @@ public class ClientConnectionHandler implements Runnable {
             dos.writeLong(bytes.length);
             dos.write(bytes, 0, bytes.length);
             dos.flush();
-            System.out.println("File "+fileName+" sent to client.");
+            System.out.println("Downloaded by Server");
         } catch (IOException e) {
             e.printStackTrace();
         }
